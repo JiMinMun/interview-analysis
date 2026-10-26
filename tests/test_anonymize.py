@@ -476,6 +476,68 @@ def test_existing_output_is_not_overwritten(folder, source_root, out):
     assert stamp.read_text() != "edited by hand"
 
 
+def test_only_processes_the_named_folders(tmp_path, source_root, out):
+    make_folder(tmp_path, INTERVIEW, "P01")
+    make_folder(tmp_path, INTERVIEW, "P02")
+    assert run(source_root, out, "--only", "P02") == 0
+    assert not (out / "P01").exists()
+    assert (out / "P02" / "session.vtt").exists()
+
+
+def test_only_refuses_an_id_with_no_folder(tmp_path, source_root, out):
+    make_folder(tmp_path, INTERVIEW, "P01")
+    assert run(source_root, out, "--only", "P10") == 1
+    assert not out.exists()
+
+
+def test_an_updated_transcript_replaces_the_old_one_and_leaves_the_rest(tmp_path, source_root, out):
+    first = make_folder(tmp_path, INTERVIEW, "P01")
+    make_folder(tmp_path, INTERVIEW, "P02")
+    write_media(first / "session.mp4")
+    run(source_root, out)
+
+    other = out / "P02" / "session.vtt"
+    other.write_text("corrected in the reader")
+    (out / "P01" / "session_original.vtt").write_text("the reader's backup of the old text")
+    (out / "P01" / "session.highlights.json").write_text("{}")
+
+    # The update arrives under a new name, as a re-export often does.
+    (first / "session.vtt").unlink()
+    (first / "updated.vtt").write_text(INTERVIEW.replace("ask the questions", "ask a few questions"))
+
+    assert run(source_root, out, "--only", "P01", "--force") == 0
+    assert sorted(p.name for p in (out / "P01").iterdir()) == [
+        "session.highlights.json",
+        "session.mp4",
+        "updated.vtt",
+    ]
+    assert "ask a few questions" in read(out, "P01", "updated.vtt")
+    assert other.read_text() == "corrected in the reader"
+
+
+def test_unchanged_media_is_not_copied_again(folder, source_root, out, capsys):
+    run(source_root, out)
+    video = out / "P07" / "GMT20240301-140000_Recording_1920x1080.mp4"
+    before = video.stat().st_ino, video.stat().st_mtime_ns
+
+    capsys.readouterr()
+    assert run(source_root, out, "--force") == 0
+    assert (video.stat().st_ino, video.stat().st_mtime_ns) == before
+    assert "kept" in capsys.readouterr().out
+
+
+def test_a_dry_run_reports_what_force_would_remove_and_removes_nothing(tmp_path, source_root, out, capsys):
+    make_folder(tmp_path, INTERVIEW, "P01")
+    run(source_root, out)
+    old = out / "P01" / "old.vtt"
+    old.write_text(INTERVIEW)
+
+    capsys.readouterr()
+    assert run(source_root, out, "--force", "--dry-run") == 0
+    assert "removed old.vtt" in capsys.readouterr().out
+    assert old.exists()
+
+
 def test_output_inside_input_is_refused(folder, source_root):
     assert anon.main([str(source_root), str(source_root / "nested")]) == 1
     assert anon.main([str(source_root), str(source_root)]) == 1

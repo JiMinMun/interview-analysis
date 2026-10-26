@@ -856,6 +856,28 @@ but the parts differ is kept.
 Excluding is not a failure: those folders are listed separately and the exit
 status stays zero.
 
+### When a transcript is updated
+
+```bash
+python scripts/anonymize_zoom.py raw/ anonymized/ --only P03 P07 --force --dry-run
+python scripts/anonymize_zoom.py raw/ anonymized/ --only P03 P07 --force
+```
+
+`--only` limits the run to the participants named; every other folder in
+`anonymized/` is left exactly as it is. You say which folders changed rather than
+the script guessing, because from the outside a transcript updated in `raw/` and
+one corrected in the reader look the same — and guessing wrong means overwriting
+the correction.
+
+`--force` replaces those folders' transcripts, and it removes any transcript in
+them that this run does not write: one the update renamed, and the reader's
+`_original.vtt` backup of the old text. Either would otherwise be read as another
+part of the session. Media that is already there unchanged is not copied again.
+Quotes and word timings are kept — the reader notices that the text under them
+changed, flags the quotes, and falls back to interpolated timings where the words
+moved. Corrections made in the reader to a replaced transcript are lost, which is
+what the dry run is for.
+
 ### What it refuses, and what it only reports
 
 A folder produces **no output at all** rather than a partial result. Nothing is

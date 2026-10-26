@@ -35,6 +35,7 @@ Usage:
     python scripts/anonymize_zoom.py INPUT_DIR OUTPUT_DIR --dry-run
     python scripts/anonymize_zoom.py INPUT_DIR OUTPUT_DIR
     python scripts/anonymize_zoom.py INPUT_DIR OUTPUT_DIR --interviewer "Ada Lovelace"
+    python scripts/anonymize_zoom.py INPUT_DIR OUTPUT_DIR --only P03 P07 --force
 """
 
 from __future__ import annotations
@@ -383,6 +384,14 @@ def is_backup_transcript(path: Path) -> bool:
     return path.suffix.lower() in TRANSCRIPT_EXTENSIONS and path.stem.endswith(BACKUP_SUFFIX)
 
 
+def same_file(source: Path, target: Path) -> bool:
+    """Whether ``target`` is already a copy of ``source``, as copy2 leaves one."""
+    if not target.is_file():
+        return False
+    a, b = source.stat(), target.stat()
+    return a.st_size == b.st_size and int(a.st_mtime) == int(b.st_mtime)
+
+
 def read_transcript(path: Path) -> str:
     with path.open("r", encoding="utf-8", errors="replace", newline="") as handle:
         return handle.read()
@@ -459,6 +468,10 @@ class Result:
     copied: list[str] = field(default_factory=list)
     anonymized: list[str] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
+    #: Media already in the output, unchanged, so not copied again.
+    kept: list[str] = field(default_factory=list)
+    #: Transcripts in the output that this run does not write, removed by --force.
+    removed: list[str] = field(default_factory=list)
     mapping_summary: list[str] = field(default_factory=list)
     review: list[str] = field(default_factory=list)
     replacements: int = 0
@@ -539,6 +552,11 @@ def process_folder(
         target = destination / relative.parent / target_name
 
         if suffix in MEDIA_EXTENSIONS:
+            if same_file(path, target):
+                # Re-running for an updated transcript should not mean copying
+                # every recording again.
+                result.kept.append(str(target.relative_to(destination)))
+                continue
             planned.append((path, target, None))
             result.copied.append(f"{relative} -> {target.relative_to(destination)}")
         elif suffix in TRANSCRIPT_EXTENSIONS:
@@ -562,10 +580,26 @@ def process_folder(
         else:
             result.skipped.append((str(relative), f"unhandled file type ({suffix or 'no extension'})"))
 
+    # A transcript left over from an earlier run would be read as another part of
+    # the session -- a renamed transcript, or the reader's backup of the old text.
+    # Quotes and word timings stay: the reader notices when the text under them
+    # has changed, and they are work that cannot be regenerated.
+    stale: list[Path] = []
+    if force and destination.exists():
+        written = {target for _, target, cleaned in planned if cleaned is not None}
+        stale = [
+            p
+            for p in sorted(destination.rglob("*"))
+            if p.is_file() and p.suffix.lower() in TRANSCRIPT_EXTENSIONS and p not in written
+        ]
+        result.removed = [str(p.relative_to(destination)) for p in stale]
+
     if dry_run:
         return result
 
     destination.mkdir(parents=True, exist_ok=True)
+    for path in stale:
+        path.unlink()
     for source_path, target, cleaned in planned:
         target.parent.mkdir(parents=True, exist_ok=True)
         if cleaned is None:
@@ -593,6 +627,10 @@ def report_folder(result: Result) -> None:
         print(f"    rewrote {line}")
     for line in result.copied:
         print(f"    copied  {line}")
+    for line in result.kept:
+        print(f"    kept    {line}  (already there, unchanged)")
+    for line in result.removed:
+        print(f"    removed {line}  (old transcript, not written this run)")
     for name, why in result.skipped:
         print(f"    skipped {name}  ({why})")
 
@@ -649,7 +687,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--dry-run", action="store_true", help="report what would happen, write nothing")
     parser.add_argument(
-        "--force", action="store_true", help="write into output folders that already have files"
+        "--force",
+        action="store_true",
+        help="write into output folders that already have files, replacing their "
+        "transcripts (corrections made in the reader are lost) and removing any old "
+        "transcript this run does not write. Quotes and word timings are kept.",
+    )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="ID",
+        help="process only these participant folders, e.g. after their transcripts "
+        "were updated. Pair with --force to replace existing output.",
     )
     args = parser.parse_args(argv)
 
@@ -667,6 +716,13 @@ def main(argv: list[str] | None = None) -> int:
     if not folders:
         print(f"error: no participant folders found in {args.input}", file=sys.stderr)
         return 1
+    if args.only:
+        # A mistyped ID would otherwise quietly process nothing for that person.
+        unknown = sorted(set(args.only) - {p.name for p in folders})
+        if unknown:
+            print(f"error: no such participant folder: {', '.join(unknown)}", file=sys.stderr)
+            return 1
+        folders = [p for p in folders if p.name in args.only]
 
     explicit = list(args.interviewer or [])
     print(f"{len(folders)} participant folder(s) in {args.input}")
