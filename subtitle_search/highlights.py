@@ -428,6 +428,50 @@ class HighlightStore:
             self._write()
         return touched
 
+    def rename_tag(self, old: str, new: str) -> int:
+        """Call every use of ``old`` by ``new`` instead, and return how many quotes changed.
+
+        Renaming onto a tag that already exists merges the two: a quote carrying
+        both ends up with one. The history moves too, or the old name would keep
+        being offered while typing and drift back into use.
+        """
+        new = new.strip()
+        touched = 0
+        for highlight in self._data["highlights"]:
+            tags = highlight.get("tags") or []
+            if old not in tags:
+                continue
+            highlight["tags"] = _normalize_tags([new if tag == old else tag for tag in tags])
+            highlight["updated_at"] = _now()
+            touched += 1
+
+        known = self._data.setdefault("known_tags", [])
+        remembered = old in known
+        if remembered:
+            self._data["known_tags"] = _normalize_tags([new if tag == old else tag for tag in known])
+        if touched or remembered:
+            self._write()
+        return touched
+
+    def delete_tag(self, tag: str) -> int:
+        """Take ``tag`` off every quote and out of the history; return how many quotes lost it."""
+        touched = 0
+        for highlight in self._data["highlights"]:
+            tags = highlight.get("tags") or []
+            if tag not in tags:
+                continue
+            highlight["tags"] = [t for t in tags if t != tag]
+            highlight["updated_at"] = _now()
+            touched += 1
+
+        known = self._data.setdefault("known_tags", [])
+        remembered = tag in known
+        if remembered:
+            known.remove(tag)
+        if touched or remembered:
+            self._write()
+        return touched
+
     def restamp(self) -> None:
         """Record the transcript's new digest after an edit, so it reads as current."""
         self._write()

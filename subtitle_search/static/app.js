@@ -53,6 +53,8 @@ const ctx = {
     highlightCount: $("highlight-count"),
     highlightsPath: $("highlights-path"),
     tagFilters: $("tag-filters"),
+    sidebarExpand: $("sidebar-expand"),
+    codeLink: $("code-link"),
     dock: $("dock"),
     dockToggle: $("dock-toggle"),
     dockGrip: $("dock-grip"),
@@ -109,6 +111,29 @@ ctx.showTab = (which) => {
   ctx.el.tabHighlights.setAttribute("aria-pressed", String(!showSearch));
 };
 
+/* -------------------------------------------------------- wide sidebar -- */
+
+// Twenty-two rems is right for reading with the list alongside, and too narrow
+// for a pass over the quotes themselves -- notes and tags wrap to a word a line.
+// Widening trades transcript for list without leaving the page.
+const SIDEBAR_WIDE_KEY = "subtitle-search:sidebar-wide";
+
+function setSidebarWide(wide) {
+  ctx.el.sidebar.classList.toggle("sidebar--wide", wide);
+  ctx.el.sidebarExpand.setAttribute("aria-pressed", String(wide));
+  ctx.el.sidebarExpand.textContent = wide ? "⇥" : "⇤";
+  ctx.el.sidebarExpand.title = wide ? "Narrow the quotes panel" : "Widen the quotes panel";
+  remember(SIDEBAR_WIDE_KEY, wide ? "1" : "0");
+}
+
+setSidebarWide(recall(SIDEBAR_WIDE_KEY) === "1");
+ctx.el.sidebarExpand.addEventListener("click", () => {
+  setSidebarWide(!ctx.el.sidebar.classList.contains("sidebar--wide"));
+  // The transcript column just changed width, so every block reflowed.
+  cacheGeometry(ctx);
+  updateSpine(ctx);
+});
+
 /* ------------------------------------------------------------ mode logic -- */
 
 ctx.setMode = (mode) => {
@@ -141,6 +166,9 @@ async function load() {
     config.default_recording_id;
   // The library is always the way back, however few recordings it holds.
   ctx.el.libraryLink.hidden = false;
+  if (ctx.recordingId) {
+    ctx.el.codeLink.href = `/quotes?recording=${encodeURIComponent(ctx.recordingId)}`;
+  }
   if (!ctx.recordingId) {
     ctx.el.chunks.innerHTML = '<p class="empty">No recording loaded.</p>';
     return;

@@ -284,6 +284,22 @@ def vocabulary(registry) -> list[dict]:
     )
 
 
+def rename_tag(registry, old: str, new: str) -> dict:
+    """Rename a code across the whole library.
+
+    A code is a study-wide idea even though each recording stores its own tags,
+    so renaming it in one interview and not the others would split it in two.
+    """
+    counts = [recording.store.rename_tag(old, new) for recording in registry.list()]
+    return {"quote_count": sum(counts), "recording_count": sum(1 for n in counts if n)}
+
+
+def delete_tag(registry, tag: str) -> dict:
+    """Remove a code from every quote and every recording's history."""
+    counts = [recording.store.delete_tag(tag) for recording in registry.list()]
+    return {"quote_count": sum(counts), "recording_count": sum(1 for n in counts if n)}
+
+
 def cooccurrence(quotes: list[dict], minimum: int = 1) -> list[dict]:
     """Tags that share a quote.
 

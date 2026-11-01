@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quotes</title>
+<link rel="stylesheet" href="/static/styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23f0f1ec'/%3E%3Crect x='9' y='4' width='1.5' height='24' fill='%23d3d7c9'/%3E%3Crect x='8' y='11' width='3.5' height='10' rx='1.75' fill='%233d3bd4'/%3E%3Crect x='15' y='9' width='11' height='1.6' rx='.8' fill='%231c1f1b'/%3E%3Crect x='15' y='15' width='9' height='1.6' rx='.8' fill='%231c1f1b'/%3E%3Crect x='15' y='21' width='11' height='1.6' rx='.8' fill='%231c1f1b'/%3E%3C/svg%3E">
+</head>
+<body class="page">
+
+<header class="topbar">
+  <div class="topbar__identity">
+    <h1 class="topbar__title">Quotes</h1>
+    <p class="topbar__meta" id="meta"></p>
+  </div>
+
+  <div class="topbar__search">
+    <label class="field">
+      <span class="field__key">/</span>
+      <input type="search" id="search-input" placeholder="Search quotes, notes, speakers" autocomplete="off" spellcheck="false">
+    </label>
+  </div>
+
+  <div class="topbar__actions">
+    <nav class="tabs">
+      <a class="btn" href="/">Recordings</a>
+      <a class="btn" href="/quotes" aria-current="page">Quotes</a>
+      <a class="btn" href="/themes">Themes</a>
+    </nav>
+    <button class="btn btn--icon" id="theme-toggle" type="button" title="Switch theme" aria-label="Switch theme">◐</button>
+  </div>
+</header>
+
+<div class="notices" id="notices"></div>
+
+<!-- Closed coding: one pass down every quote with the codebook alongside. Just
+     the quotes and their tags -- no transcript, no plane, nothing to arrange. -->
+<main class="coding">
+  <div class="coding__toolbar">
+    <label class="board__filter">
+      <span>Tag</span>
+      <select id="filter-tag" aria-label="Filter by tag"></select>
+    </label>
+    <label class="board__filter">
+      <span>From</span>
+      <select id="filter-recording" aria-label="Filter by recording"></select>
+    </label>
+    <label class="board__filter">
+      <span>Said by</span>
+      <select id="filter-speaker" aria-label="Filter by speaker"></select>
+    </label>
+    <label class="board__filter">
+      <span>Group by</span>
+      <select id="group-by" aria-label="Group quotes by">
+        <option value="">nothing</option>
+        <option value="recording">recording</option>
+        <option value="speaker">speaker</option>
+      </select>
+    </label>
+    <div class="coding__codes" id="code-filter" hidden></div>
+    <span class="board__hint" id="summary"></span>
+  </div>
+
+  <div class="coding__body">
+    <section class="coding__list" id="list" aria-label="Quotes"></section>
+
+    <aside class="codebook" aria-labelledby="codebook-title">
+      <header class="panel__head">
+        <h2 class="panel__title" id="codebook-title">Codebook</h2>
+        <span class="panel__count" id="codebook-count"></span>
+      </header>
+      <form class="codebook__add" id="codebook-add">
+        <input class="quote__note" id="codebook-input" type="text" autocomplete="off"
+               placeholder="Add a code" aria-label="Add a code to the codebook">
+      </form>
+      <div class="codebook__list" id="codebook"></div>
+      <p class="codebook__keys">
+        click a code, or press its number, to toggle it on the selected quote ·
+        <kbd>j</kbd>/<kbd>k</kbd> next / previous · <kbd>t</kbd> type a tag ·
+        ⌕ find every quote with a code · ✎ rename · × delete
+      </p>
+    </aside>
+  </div>
+</main>
+
+<script type="module" src="/static/quotes.js"></script>
+</body>
+</html>

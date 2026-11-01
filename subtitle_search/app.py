@@ -31,8 +31,10 @@ from .library import (
     ThemeStore,
     all_quotes,
     cooccurrence,
+    delete_tag,
     metrics as canvas_metrics,
     packing_order,
+    rename_tag,
     tag_index,
     untagged,
     vocabulary,
@@ -54,7 +56,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 #: The HTML entry points. Held to the same revalidation rule as the scripts, so a
 #: page and its modules can never come from two different versions of the tool.
-PAGES = {"/", "/reader", "/themes"}
+PAGES = {"/", "/reader", "/quotes", "/themes"}
 
 #: Tells "the client said nothing about where this card came from" apart from
 #: "it came from the bare canvas", which is a real answer and arrives as null.
@@ -363,6 +365,24 @@ def create_app(registry: RecordingRegistry) -> FastAPI:
         """The tag vocabulary of the whole study, for completing as you type."""
         return {"tags": vocabulary(registry)}
 
+    # Tags travel in the body rather than the path: a code is free text and can
+    # hold a slash.
+    def _tag(payload: dict, key: str) -> str:
+        tag = str(payload.get(key) or "").strip()
+        if not tag:
+            raise HTTPException(status_code=400, detail=f"{key} is required")
+        return tag
+
+    @app.post("/api/library/tags/rename")
+    def rename_library_tag(payload: dict = Body(...)) -> dict:
+        old, new = _tag(payload, "from"), _tag(payload, "to")
+        return {"from": old, "to": new, **rename_tag(registry, old, new)}
+
+    @app.post("/api/library/tags/delete")
+    def delete_library_tag(payload: dict = Body(...)) -> dict:
+        tag = _tag(payload, "tag")
+        return {"tag": tag, **delete_tag(registry, tag)}
+
     @app.get("/api/library/quotes")
     def get_library_quotes() -> dict:
         return {"quotes": corpus()}
@@ -617,6 +637,10 @@ def create_app(registry: RecordingRegistry) -> FastAPI:
     @app.get("/reader")
     def reader() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html")
+
+    @app.get("/quotes")
+    def quotes_page() -> FileResponse:
+        return FileResponse(STATIC_DIR / "quotes.html")
 
     @app.get("/themes")
     def themes_page() -> FileResponse:

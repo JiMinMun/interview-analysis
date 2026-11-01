@@ -205,6 +205,7 @@ def test_library_page_is_served_for_many_recordings(client):
     api, _ = client
     assert "Library" in api.get("/").text
     assert "<title>Themes</title>" in api.get("/themes").text
+    assert "<title>Quotes</title>" in api.get("/quotes").text
     assert "id=\"transcript\"" in api.get("/reader").text
 
 
@@ -1178,3 +1179,70 @@ def test_vocabulary_of_an_untagged_library_is_empty(tmp_path):
     from subtitle_search.library import vocabulary
 
     assert vocabulary(registry) == []
+
+
+# -- renaming and deleting codes ---------------------------------------
+
+
+def test_renaming_a_code_reaches_every_recording(client):
+    api, registry = client
+    body = api.post("/api/library/tags/rename", json={"from": "timestamps", "to": "finding the moment"}).json()
+
+    assert body["quote_count"] == 3
+    assert body["recording_count"] == 3
+    tags = {t for q in all_quotes(registry) for t in q["tags"]}
+    assert "timestamps" not in tags
+    assert "finding the moment" in tags
+
+
+def test_renaming_onto_an_existing_code_merges_them(client):
+    api, registry = client
+    api.post("/api/library/tags/rename", json={"from": "timestamps", "to": "trust"})
+
+    by_id = {q["id"]: q["tags"] for q in all_quotes(registry)}
+    assert by_id["q5"] == ["trust"]  # carried both; keeps one
+    assert by_id["q2"] == ["trust", "tone"]
+
+
+def test_a_renamed_code_leaves_no_trace_in_the_vocabulary(client):
+    """The old name would otherwise keep being offered and drift back into use."""
+    api, registry = client
+    recording = next(r for r in registry.list() if r.title == "P01")
+    recording.store.update("q1", {"tags": ["provisional"]})
+    recording.store.update("q1", {"tags": []})
+
+    api.post("/api/library/tags/rename", json={"from": "provisional", "to": "settled"})
+
+    tags = [e["tag"] for e in api.get("/api/library/vocabulary").json()["tags"]]
+    assert "provisional" not in tags
+    assert "settled" in tags
+
+
+def test_a_rename_is_written_to_disk(client, library):
+    api, _ = client
+    api.post("/api/library/tags/rename", json={"from": "tone", "to": "register"})
+
+    data = json.loads((library / "P01" / "session.highlights.json").read_text())
+    assert data["highlights"][1]["tags"] == ["timestamps", "register"]
+    assert "tone" not in data["known_tags"]
+
+
+def test_deleting_a_code_takes_it_off_every_quote(client, library):
+    api, registry = client
+    body = api.post("/api/library/tags/delete", json={"tag": "trust"}).json()
+
+    assert body["quote_count"] == 2
+    assert body["recording_count"] == 2
+    by_id = {q["id"]: q["tags"] for q in all_quotes(registry)}
+    assert by_id["q1"] == []
+    assert by_id["q5"] == ["timestamps"]
+    tags = [e["tag"] for e in api.get("/api/library/vocabulary").json()["tags"]]
+    assert "trust" not in tags
+    data = json.loads((library / "P03" / "session.highlights.json").read_text())
+    assert "trust" not in data["known_tags"]
+
+
+def test_renaming_or_deleting_needs_a_name(client):
+    api, _ = client
+    assert api.post("/api/library/tags/rename", json={"from": "trust", "to": "  "}).status_code == 400
+    assert api.post("/api/library/tags/delete", json={}).status_code == 400

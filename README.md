@@ -456,6 +456,40 @@ Notes and tags are edited in the sidebar. The tag filter lists only tags that
 have quotes behind them, with a count — a tag you have stopped using disappears
 from the filter, while remaining available for autocomplete when tagging.
 
+**⇤** in the panel's header widens it to about half the window, for a pass over
+the quotes rather than reading with them alongside; **⇥** puts it back. The
+choice is remembered. **Code ↗** opens this recording's quotes in the
+[coding view](#coding-quotes) in a new tab.
+
+## Coding quotes
+
+`/quotes` is every quote in the library and nothing else — no transcript, no
+plane — with its tags beside it and the **codebook** pinned on the right. It is
+built for closed coding: one pass from top to bottom, applying a fixed set of
+codes.
+
+- Click a quote (or `j` / `k`) to select it. Click a code, or press its number
+  (`1`…`9` for the first nine), to put it on the selected quote or take it off.
+  `t` jumps into the quote's tag field to type one; `Esc` leaves it.
+- The codebook is alphabetical and stays that way, so a code's number does not
+  change while you work. **Add a code** to write the codebook up front; a code
+  nobody has used yet is kept in this browser until the first quote carries it.
+- Filter by tag (including *untagged*), recording or speaker, and search across
+  text, notes, speakers and tags. **Tagging never re-filters the list** —
+  working through *untagged*, a quote stays where it is after you code it, and
+  only leaves when you change a filter.
+- **⌕** beside a code (or picking a code in the *Tag* filter) shows only the
+  quotes carrying it, from every recording. Add more codes to narrow to the
+  quotes that share all of them; the summary says how many recordings and
+  speakers those quotes come from. **Group by** recording or speaker to read
+  them side by side. `/quotes?code=trust&code=privacy` opens with codes chosen.
+- **✎** renames a code and **×** deletes it, on every quote in every recording.
+  Renaming onto a code that already exists merges the two. Deleting a code
+  leaves the quotes themselves alone.
+
+Edits go to the same quotes file the reader writes, so they show up in the
+reader and on the themes page straight away.
+
 Everything is written immediately to one `session.highlights.json` beside the
 recording — one file per folder, whatever the number of parts — so quotes travel
 with the folder. There is no save step. Writes are atomic, so an interrupted
